@@ -1,0 +1,27 @@
+# Ambientes virtuais
+.venv/
+venv/
+env/
+
+# IDEs
+.vscode/
+.idea/
+
+# Arquivos do sistema
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Distribuição
+build/
+dist/
+*.egg-info/
+
+# Testes
+.pytest_cache/
+
+# Cache de ferramentas
+.mypy_cache/
+.ruff_cache/
