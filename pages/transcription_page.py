@@ -8,20 +8,16 @@ from PySide6.QtWidgets import (
 )
 
 class TranscriptionPage(QWidget):
-    def __init__(self, main_window):
+    def __init__(self):
         super().__init__()
 
-        self.main = main_window        
-
         # WIDGETS
-        self.button_download = QPushButton("go to download Page")
         self.button_transcribe = QPushButton("TRANSCRIBE")
         self.input_path_video = QLineEdit()
         self.label = QLabel()
 
         # SET WIDGETS
         self.label.setText("PAGINA DE TRANSCRIÇÃO")
-        self.button_download.clicked.connect(self.main.show_download_page)
         self.button_transcribe.clicked.connect(self.transcribe)
 
         # LAYOUT
@@ -29,7 +25,6 @@ class TranscriptionPage(QWidget):
         layout.addWidget(self.label)
         layout.addWidget(self.input_path_video)
         layout.addWidget(self.button_transcribe)
-        layout.addWidget(self.button_download)
 
     
     def time_formatter(self, seconds):
