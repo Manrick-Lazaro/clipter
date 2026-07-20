@@ -8,20 +8,15 @@ from PySide6.QtWidgets import (
 )
 
 class DownloadPage(QWidget):
-    def __init__(self, main_window):
+    def __init__(self):
         super().__init__()
 
-        self.main = main_window
-
         # WIDGETS
-        self.button_transcribe = QPushButton("Ir para página de transcrição")
         self.button_download = QPushButton("DOWNLOAD")
         self.input_url_video = QLineEdit()
         self.label = QLabel()
 
         # SET WIDGETS
-        self.label.setText("PAGINA DE DOWNLOAD")
-        self.button_transcribe.clicked.connect(self.main.show_transcription_page)
         self.button_download.clicked.connect(self.download)
 
         # LAYOUT
@@ -29,7 +24,6 @@ class DownloadPage(QWidget):
         layout.addWidget(self.label)
         layout.addWidget(self.input_url_video)
         layout.addWidget(self.button_download)
-        layout.addWidget(self.button_transcribe)
 
     def download(self):
         url = self.input_url_video.text()
