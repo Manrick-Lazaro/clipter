@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from PySide6.QtWidgets import (
     QMainWindow, 
     QStackedWidget,
@@ -5,7 +7,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
 )
 
-from pages.download_page import DownloadPage
+from pages.download_page.download_page import DownloadPage
 from pages.transcription_page import TranscriptionPage
 from widgets.side_menu import SideMenu
 
@@ -14,11 +16,12 @@ class MainWindow(QMainWindow):
         super().__init__()
 
         self.setWindowTitle("Clipter")
-        self.resize(1024, 768)
+        self.resize(1324, 868)
 
         # WIDGETS
         self.menu = SideMenu()
         self.stack = QStackedWidget()
+        self.stack.setObjectName("stack")
         self.download_page = DownloadPage()
         self.transcription_page = TranscriptionPage()
 
@@ -45,6 +48,15 @@ class MainWindow(QMainWindow):
         self.menu.bt_transcription.clicked.connect(
             self.show_transcription_page
         )
+
+        self.loadStyle()
+    
+    def loadStyle(self):
+        qss = Path(__file__).parent / "style.qss"
+
+        with open(qss, "r", encoding="utf-8") as f:
+            self.setStyleSheet(f.read())
+
     def show_download_page(self):
         self.stack.setCurrentWidget(self.download_page)
         self.menu.set_active_button(
