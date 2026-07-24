@@ -1,0 +1,138 @@
+QMainWindow{
+    background:#0c1424;
+    color:white;
+}
+
+QLabel{
+    background:transparent;
+}
+
+QGroupBox{
+    background:#182338;
+    border:none;
+    margin-top:12px;
+    font-weight:600;
+    color:#8ca4ca;
+}
+
+#downloadPage{
+    background:#0c1424;
+}
+
+#downloadPage *{
+    color:white;
+    font-family:Segoe UI;
+    font-size:11pt;
+}
+
+#title{
+    font-size:26pt;
+    font-weight:700;
+    color: #dce4fe;
+    margin-bottom: 5px;
+}
+
+#subtitle{
+    color:#c4c7d8;
+    font-size: 16px;
+    margin-bottom: 30px;
+}
+
+#card{
+    background:#182338;
+    border:1px solid #24344f;
+    border-radius:16px;
+}
+
+QLineEdit{
+    background:#0f192d;
+    border:1px solid #2b4061;
+    border-radius:8px;
+    padding:8px;
+}
+
+QGroupBox{
+    border:none;
+    font-weight:600;
+    color:#8ca4ca;
+    margin-top:12px;
+}
+
+QPushButton{
+    background:#24344f;
+    border:none;
+    border-radius:10px;
+    padding:10px;
+}
+
+QPushButton:hover{
+    background:#315184;
+}
+
+#downloadButton{
+    background:#2f66ff;
+    font-size:14pt;
+    font-weight:700;
+}
+
+#downloadButton:hover{
+    background:#4b7cff;
+}
+
+QProgressBar{
+    background:#0d1628;
+    border:none;
+    height:8px;
+    border-radius:4px;
+}
+
+QProgressBar::chunk{
+    background:#2f66ff;
+    border-radius:4px;
+}
+
+#label{
+    color:#7da4d8;
+    font-weight:600;
+}
+
+#state{
+    font-size:18px;
+    font-weight:bold;
+}
+
+#preview{
+    background:#24344f;
+    border-radius:10px;
+    font-size:20px;
+}
+
+#downloadItem{
+    background:#182338;
+    border-radius:12px;
+    border:1px solid #24344f;
+}
+
+#fileTitle{
+    font-weight:700;
+    font-size:13px;
+}
+
+#status{
+    color:#8fa3c6;
+}
+
+#rightStatus{
+    font-size:18px;
+    font-weight:bold;
+    color:#6ea0ff;
+}
+
+#queue{
+    font-size:18px;
+    font-weight:bold;
+}
+
+#mode_download_box {
+    min-height: 80px;
+}
