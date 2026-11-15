@@ -1,10 +1,4 @@
-from pathlib import Path
-import zipfile, py_compile, textwrap
-
-base = Path("/mnt/data/omnivideo_studio")
-base.mkdir(parents=True, exist_ok=True)
-
-# app_code = r'''from __future__ import annotations
+from __future__ import annotations
 
 import json
 import os
@@ -191,26 +185,18 @@ class Worker(QObject):
                 self.progress.emit(min(99, int(seg.end * 100 / duration)))
             self.log.emit(f"[{self._ts(seg.start)}] {seg.text.strip()}")
         stem = source.stem
-        txt = " ".join(s["text"].strip() for s in segments).strip()
-        (output / f"{stem}.txt").write_text(txt + "\n", encoding="utf-8")
         srt_lines: list[str] = []
-        vtt_lines = ["WEBVTT", ""]
         for i, seg in enumerate(segments, 1):
-            srt_lines.extend([str(i), f'{self._ts(seg["start"])} --> {self._ts(seg["end"])}', seg["text"].strip(), ""])
-            vtt_lines.extend([f'{self._ts(seg["start"], True)} --> {self._ts(seg["end"], True)}', seg["text"].strip(), ""])
-        (output / f"{stem}.srt").write_text("\n".join(srt_lines), encoding="utf-8")
-        (output / f"{stem}.vtt").write_text("\n".join(vtt_lines), encoding="utf-8")
-        data = {
-            "source": str(source.resolve()), "model": model_name, "language": language,
-            "duration": duration, "language_probability": info.language_probability,
-            "settings": {"beam_size": beam_size, "patience": 2, "temperature": 0,
-                         "condition_on_previous_text": True, "word_timestamps": True,
-                         "vad_filter": False, "device": device, "compute_type": compute_type},
-            "segments": segments,
-        }
-        (output / f"{stem}.json").write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+            srt_lines.extend([
+                str(i),
+                f'{self._ts(seg["start"])} --> {self._ts(seg["end"])}',
+                seg["text"].strip(),
+                "",
+            ])
+        srt_path = output / f"{stem}.srt"
+        srt_path.write_text("\n".join(srt_lines), encoding="utf-8")
         self.progress.emit(100)
-        self.log.emit(f"Arquivos gerados: {stem}.txt, .srt, .vtt e .json")
+        self.log.emit(f"Legenda SRT gerada: {srt_path}")
 
     @staticmethod
     def _ts(seconds: float, vtt: bool = False) -> str:
@@ -237,15 +223,35 @@ class Worker(QObject):
             start, end = float(cut["start"]), float(cut["end"])
             if start < 0 or end <= start:
                 raise ValueError(f"Intervalo inválido no item {index}: início/fim.")
-            title = re.sub(r'[<>:"/\\\\|?*]+', "_", cut["title"]).strip(" .") or f"corte_{index:03}"
-            target = output / f"{index:03}_{title}.mp4"
+            raw_title = str(cut.get("title") or "").strip()
+            if raw_title:
+                filename = re.sub(r'[<>:"/\\|?*]+', "_", raw_title).strip(" .")
+            else:
+                total_ms = max(0, round(start * 1000))
+                hours, rem = divmod(total_ms, 3_600_000)
+                minutes, rem = divmod(rem, 60_000)
+                seconds, millis = divmod(rem, 1000)
+                filename = f"{hours:02}-{minutes:02}-{seconds:02}"
+                if millis:
+                    filename += f"-{millis:03}"
+                end_ms = max(0, round(end * 1000))
+                end_hours, end_rem = divmod(end_ms, 3_600_000)
+                end_minutes, end_rem = divmod(end_rem, 60_000)
+                end_seconds, end_millis = divmod(end_rem, 1000)
+                end_stamp = f"{end_hours:02}-{end_minutes:02}-{end_seconds:02}"
+                if end_millis:
+                    end_stamp += f"-{end_millis:03}"
+                filename += f"_ate_{end_stamp}"
+            if not filename:
+                raise ValueError(f"Título inválido no item {index}.")
+            target = output / f"{filename}.mp4"
             command = [ffmpeg, "-hide_banner", "-y", "-ss", str(start), "-i", str(source), "-t", str(end-start)]
             if mode == "Rápido (Stream Copy)":
                 command += ["-map", "0", "-c", "copy"]
             else:
                 command += ["-map", "0:v:0?", "-map", "0:a:0?", "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-c:a", "aac", "-b:a", "192k"]
             command += ["-movflags", "+faststart", str(target)]
-            self.log.emit(f"Cortando {index}/{len(cuts)}: {title}")
+            self.log.emit(f"Cortando {index}/{len(cuts)}: {filename}")
             proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace")
             while proc.poll() is None:
                 if self._stop:
@@ -324,11 +330,7 @@ class ClipterWindow(QMainWindow):
         search = QLineEdit()
         search.setPlaceholderText("⌕  Pesquisar mídias, tarefas ou comandos...")
         search.setReadOnly(True)
-        top.addWidget(search, 1)
-        clock = QLabel("LOCAL PROCESSING")
-        clock.setObjectName("topBadge")
-        top.addWidget(clock)
-        ml.addLayout(top)
+        
         self.pages = QStackedWidget()
         self.pages.addWidget(self._download_page())
         self.pages.addWidget(self._transcription_page())
@@ -497,6 +499,24 @@ class ClipterWindow(QMainWindow):
         mode_row.addWidget(self.cut_mode)
         sl.addLayout(mode_row)
         outer.addWidget(source_panel)
+
+        json_panel, jl = self._panel(
+            "Importar lista de cortes (JSON)",
+            'Carregue um arquivo JSON com uma lista de objetos contendo "title", "start" e "end".'
+        )
+        json_row = QHBoxLayout()
+        self.cut_json_path = QLineEdit()
+        self.cut_json_path.setPlaceholderText("Selecione um arquivo .json com os trechos")
+        json_browse = QPushButton("Selecionar JSON...")
+        json_browse.clicked.connect(self._browse_cut_json)
+        json_load = QPushButton("Carregar trechos")
+        json_load.clicked.connect(self._load_cuts_json)
+        json_row.addWidget(self.cut_json_path, 1)
+        json_row.addWidget(json_browse)
+        json_row.addWidget(json_load)
+        jl.addLayout(json_row)
+        outer.addWidget(json_panel)
+
         heading = QHBoxLayout()
         heading.setContentsMargins(0, 5, 0, 0)
         heading.addWidget(QLabel("Trechos Marcados para Corte"))
@@ -524,6 +544,71 @@ class ClipterWindow(QMainWindow):
         outer.addWidget(bottom)
         self.cut_log = self._log_box(outer, "Registro de cortes", compact=True)
         return page
+
+    def _browse_cut_json(self):
+        path = QFileDialog.getOpenFileName(
+            self, "Selecionar lista de cortes", "", "Arquivos JSON (*.json)"
+        )[0]
+        if path:
+            self.cut_json_path.setText(path)
+
+    @staticmethod
+    def _format_cut_time(value):
+        seconds = float(value)
+        if seconds < 0:
+            raise ValueError("Os tempos não podem ser negativos.")
+        total_ms = round(seconds * 1000)
+        hours, rem = divmod(total_ms, 3_600_000)
+        minutes, rem = divmod(rem, 60_000)
+        whole_seconds, millis = divmod(rem, 1000)
+        if millis:
+            return f"{hours:02}:{minutes:02}:{whole_seconds:02}.{millis:03}"
+        return f"{hours:02}:{minutes:02}:{whole_seconds:02}"
+
+    def _load_cuts_json(self):
+        path = Path(self.cut_json_path.text().strip())
+        if not path.is_file():
+            QMessageBox.warning(self, "JSON", "Selecione um arquivo JSON existente.")
+            return
+        try:
+            data = json.loads(path.read_text(encoding="utf-8-sig"))
+            if not isinstance(data, list) or not data:
+                raise ValueError("O JSON deve conter uma lista com pelo menos um trecho.")
+            validated = []
+            for index, item in enumerate(data, 1):
+                if not isinstance(item, dict) or "start" not in item or "end" not in item:
+                    raise ValueError(f"Item {index}: informe start e end.")
+                start = item["start"]
+                end = item["end"]
+                # Aceita segundos numéricos ou strings HH:MM:SS / MM:SS.
+                start_seconds = self._parse_time(str(start))
+                end_seconds = self._parse_time(str(end))
+                if start_seconds < 0 or end_seconds <= start_seconds:
+                    raise ValueError(f"Item {index}: intervalo de tempo inválido.")
+                title = item.get("title", "")
+                if title is None:
+                    title = ""
+                if not isinstance(title, str):
+                    raise ValueError(f"Item {index}: title deve ser texto.")
+                validated.append({
+                    "title": title,
+                    "start": self._format_cut_time(start_seconds),
+                    "end": self._format_cut_time(end_seconds),
+                })
+
+            while self.cut_rows:
+                row = self.cut_rows.pop()
+                row["widget"].deleteLater()
+            for item in validated:
+                self._add_cut_row()
+                row = self.cut_rows[-1]
+                row["title"].setText(item["title"])
+                row["start"].setText(item["start"])
+                row["end"].setText(item["end"])
+            self.cut_log.append(f"{len(validated)} trecho(s) carregado(s) de {path.name}.")
+            QMessageBox.information(self, "JSON carregado", f"{len(validated)} trecho(s) importado(s).")
+        except (OSError, json.JSONDecodeError, TypeError, ValueError) as exc:
+            QMessageBox.critical(self, "Erro no JSON", str(exc))
 
     def _add_cut_row(self):
         row = QFrame()
@@ -633,12 +718,18 @@ class ClipterWindow(QMainWindow):
         cuts = []
         try:
             for i, row in enumerate(self.cut_rows, 1):
-                title = row["title"].text().strip() or f"corte_{i:03}"
+                title = row["title"].text().strip()
                 start = self._parse_time(row["start"].text())
                 end = self._parse_time(row["end"].text())
                 if start < 0 or end <= start:
                     raise ValueError(f"Confira início e fim do trecho {i}.")
                 cuts.append({"title": title, "start": start, "end": end})
+            explicit_names = [
+                re.sub(r'[<>:"/\\|?*]+', "_", c["title"]).strip(" .").casefold()
+                for c in cuts if c["title"].strip()
+            ]
+            if len(explicit_names) != len(set(explicit_names)):
+                raise ValueError("Existem títulos repetidos. Use títulos diferentes para evitar sobrescrever arquivos.")
         except ValueError as exc:
             QMessageBox.warning(self, "Tempo inválido", str(exc))
             return
